@@ -6682,6 +6682,35 @@ DROP VIEW IF EXISTS `v_vehicleviolationrecord`;
 CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_vehicleviolationrecord` AS select `mauth`.`companyName` AS `companyName`,`mauth`.`companyDeptId` AS `companyDeptId`,`mauth`.`subCompanyName` AS `subCompanyName`,`mauth`.`subCompanyDeptId` AS `subCompanyDeptId`,`mauth`.`groupName` AS `groupName`,`mauth`.`groupDeptId` AS `groupDeptId`,`mauth`.`lineDeptId` AS `linedeptId`,`mauth`.`lineName` AS `lineName`,`driver`.`empNo` AS `empNo`,`violation`.`id` AS `id`,`violation`.`violationName` AS `violationName`,`violation`.`vehicleid` AS `vehicleid`,`violation`.`vehicleNo` AS `vehicleNo`,`violation`.`driverName` AS `driverName`,`violation`.`driverid` AS `driverid`,`violation`.`content` AS `content`,`violation`.`violationdate` AS `violationdate` from (((`t_mauth_dept` `mauth` join `t_driverinfo` `driver` on((`mauth`.`lineDeptId` = `driver`.`deptid`))) join `t_vehicleviolationrecord` `violation` on((`violation`.`driverid` = `driver`.`driverid`))) join `t_vehicleinfo` `vehicle` on((`violation`.`vehicleid` = `vehicle`.`vehicleId`)));
 
 -- ----------------------------
+-- Function structure for get_repairs_days
+-- ----------------------------
+DROP FUNCTION IF EXISTS `get_repairs_days`;
+delimiter ;;
+CREATE FUNCTION `get_repairs_days`(p_vehicle_no VARCHAR(100))
+ RETURNS varchar(20) CHARSET utf8 COLLATE utf8_bin
+BEGIN
+    DECLARE v_stime, v_etime TIMESTAMP;
+    DECLARE days INT DEFAULT 0;
+    DECLARE done INT DEFAULT FALSE ;
+    DECLARE cur CURSOR FOR SELECT
+                             applyDate,
+                             realFinishDate
+                           FROM t_vehicleservice WHERE vehicleNo = p_vehicle_no and applyDate IS NOT NULL ;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND set done = TRUE ;
+    OPEN cur;
+    read_loop:  LOOP
+      FETCH cur INTO v_stime, v_etime;
+      IF done THEN
+         RETURN days;
+      END IF;
+      SET  days := days + to_days(if(v_etime is NULL or v_etime = '0000-00-00 00:00:00' ,curdate(),v_etime)) - to_days(v_stime);
+    END LOOP;
+    close cur;
+  END
+;;
+delimiter ;
+
+-- ----------------------------
 -- View structure for v_vehicle_dynimic
 -- ----------------------------
 DROP VIEW IF EXISTS `v_vehicle_dynimic`;
@@ -6973,35 +7002,6 @@ BEGIN
       SELECT accruedmiles INTO v_mile FROM t_vehiclemiles
       WHERE vehicleNo = p_vehicle_no and stat_date = (curdate() - INTERVAL 1 DAY);
       RETURN v_mile;
-  END
-;;
-delimiter ;
-
--- ----------------------------
--- Function structure for get_repairs_days
--- ----------------------------
-DROP FUNCTION IF EXISTS `get_repairs_days`;
-delimiter ;;
-CREATE FUNCTION `get_repairs_days`(p_vehicle_no VARCHAR(100))
- RETURNS varchar(20) CHARSET utf8 COLLATE utf8_bin
-BEGIN
-    DECLARE v_stime, v_etime TIMESTAMP;
-    DECLARE days INT DEFAULT 0;
-    DECLARE done INT DEFAULT FALSE ;
-    DECLARE cur CURSOR FOR SELECT
-                             applyDate,
-                             realFinishDate
-                           FROM t_vehicleservice WHERE vehicleNo = p_vehicle_no and applyDate IS NOT NULL ;
-    DECLARE CONTINUE HANDLER FOR NOT FOUND set done = TRUE ;
-    OPEN cur;
-    read_loop:  LOOP
-      FETCH cur INTO v_stime, v_etime;
-      IF done THEN
-         RETURN days;
-      END IF;
-      SET  days := days + to_days(if(v_etime is NULL or v_etime = '0000-00-00 00:00:00' ,curdate(),v_etime)) - to_days(v_stime);
-    END LOOP;
-    close cur;
   END
 ;;
 delimiter ;
